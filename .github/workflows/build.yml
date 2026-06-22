@@ -1,0 +1,38 @@
+name: Generate LocalWave IPA
+on: [workflow_dispatch, push]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Build Xcode Project (Unsigned)
+        run: |
+          # Compiles the actual localwave.xcodeproj project without requiring apple code signing certificates
+          xcodebuild archive \
+            -project localwave.xcodeproj \
+            -scheme localwave \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath $PWD/build/localwave.xcarchive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+
+      - name: Package into Clean Lowercase IPA
+        run: |
+          # Extracts the compiled .app bundle from the archive and packages it cleanly for Windows sideloaders
+          mkdir -p Payload
+          cp -r build/localwave.xcarchive/Products/Applications/*.app Payload/
+          
+          # Force the payload content to use strict lowercase naming to prevent Sideloadly extraction bugs
+          mv Payload/*.app Payload/localwave.app
+          zip -r localwave.ipa Payload
+
+      - name: Deliver Compiled IPA Package File
+        uses: actions/upload-artifact@v4
+        with:
+          name: LocalWave-iOS-Bundle
+          path: localwave.ipa
