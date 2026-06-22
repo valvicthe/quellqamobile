@@ -8,12 +8,24 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Auto-Detect Project Schemes
+        id: detect_scheme
+        run: |
+          # lists all schemes inside the project structure to bypass naming guesswork
+          echo "=== AVAILABLE SCHEMES ==="
+          xcodebuild -list -project localwave.xcodeproj
+          
+          # automatically extracts the first available scheme name from the project profile
+          SCHEME_NAME=$(xcodebuild -list -project localwave.xcodeproj | grep -A 10 "Schemes:" | tail -n +2 | xargs | awk '{print $1}')
+          echo "Detected Scheme Target: $SCHEME_NAME"
+          echo "SCHEME=$SCHEME_NAME" >> $GITHUB_ENV
+
       - name: Build Xcode Project (Unsigned)
         run: |
-          # Compiles the actual localwave.xcodeproj project without requiring apple code signing certificates
+          # utilizes the dynamically detected scheme environment variable ($SCHEME)
           xcodebuild archive \
             -project localwave.xcodeproj \
-            -scheme localwave \
+            -scheme "$SCHEME" \
             -configuration Release \
             -sdk iphoneos \
             -archivePath $PWD/build/localwave.xcarchive \
@@ -23,11 +35,10 @@ jobs:
 
       - name: Package into Clean Lowercase IPA
         run: |
-          # Extracts the compiled .app bundle from the archive and packages it cleanly for Windows sideloaders
           mkdir -p Payload
           cp -r build/localwave.xcarchive/Products/Applications/*.app Payload/
           
-          # Force the payload content to use strict lowercase naming to prevent Sideloadly extraction bugs
+          # completely flattens the output filename layout for sideloadly
           mv Payload/*.app Payload/localwave.app
           zip -r localwave.ipa Payload
 
