@@ -35,11 +35,14 @@ jobs:
 
       - name: Package into Clean Lowercase IPA
         run: |
+          # 1. Create a clean workspace payload folder
+          rm -rf Payload localwave.ipa
           mkdir -p Payload
-          cp -r build/localwave.xcarchive/Products/Applications/*.app Payload/
           
-          # completely flattens the output filename layout for sideloadly
-          mv Payload/*.app Payload/localwave.app
+          # 2. Extract the app bundle from the specific archive directory
+          cp -r build/localwave.xcarchive/Products/Applications/localwave.app Payload/ 2>/dev/null || cp -r build/localwave.xcarchive/Products/Applications/*.app Payload/
+          
+          # 3. Zip up the package structure safely
           zip -r localwave.ipa Payload
 
       - name: Deliver Compiled IPA Package File
